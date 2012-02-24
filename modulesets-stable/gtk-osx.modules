@@ -177,7 +177,7 @@
   </autotools>
 
   <autotools id="gtk+" autogen-sh="configure"
-             autogenargs="--with-gdktarget=quartz --enable-quartz-relocation"
+             autogenargs="--with-gdktarget=quartz --enable-quartz-relocation --with-included-immodules"
              autogen-template="autoreconf -fis &amp;&amp; %(srcdir)s/%(autogen-sh)s --prefix %(prefix)s --libdir %(libdir)s %(autogenargs)s">
     <branch module="gtk+/2.24/gtk+-2.24.9.tar.xz" version="2.24.9">
       <patch file="https://raw.github.com/monaka/gtk-osx-build/master/patches/0001-Apply-http-sylpheed.sraoss.jp-sylpheed-macosx-gtk-2..patch" strip="1"/>
