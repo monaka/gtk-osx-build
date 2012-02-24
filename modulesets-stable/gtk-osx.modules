@@ -185,6 +185,7 @@
       <patch file="http://git.gnome.org/browse/gtk-osx/plain/patches/0006-Bug-658722-Drag-and-Drop-sometimes-stops-working.patch" strip="1"/>
       <patch file="http://git.gnome.org/browse/gtk-osx/plain/patches/0008-Implement-GtkDragSourceOwner-pasteboardChangedOwner.patch" strip="1"/>
       <patch file="http://git.gnome.org/browse/gtk-osx/plain/patches/gtk+-Bug-655065-autotestkeywords-ldadd.patch" strip="1"/>
+      <patch file="https://raw.github.com/monaka/gtk-osx-build/master/patches/0001-Enable-quartz-immodule.patch" strip="1"/>
     </branch>
     <dependencies>
       <dep package="glib"/>
