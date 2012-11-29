@@ -157,14 +157,12 @@
   <autotools id="dbus" autogen-sh='configure'
 	   autogenargs="--disable-selinux --without-x --disable-launchd
 	   --with-session-socket-dir=/var/tmp">
-    <branch module="dbus/dbus-1.4.1.tar.gz"  version="1.4.1"
+    <branch module="dbus/dbus-1.6.8.tar.gz"  version="1.6.8"
 	    repo="dbus.freedesktop.org">
-      <patch file="https://raw.github.com/jralls/gnucash-on-osx/master/patches/dbus-install.patch"/>
-      <patch file="https://raw.github.com/jralls/gtk-osx-build/master/patches/dbus-msg-nosignal.patch" strip="1"/>
     </branch>
-    <after>
-      <dep package="gtk+"/>
-    </after>
+    <dependencies>
+      <dep package="python2.7"/>
+    </dependencies>
   </autotools>
 
   <autotools id="dbus-glib" autogenargs="--disable-selinux">
@@ -260,6 +258,16 @@
     </dependencies>
   </autotools>
 
+<!-- GtkSpell has switched to Mercurial for VCS, so we'll use the
+     tarball to avoid the dependency. -->
+  <autotools id="gtkspell3" autogen-sh="configure">
+    <branch module="gtkspell/gtkspell3-3.0.0.tar.gz" repo="sourceforge"
+	    version="3.0.0"/>
+    <dependencies>
+      <dep package="enchant"/>
+    </dependencies>
+  </autotools>
+
   <autotools id="libgsf" autogenargs="--without-python">
     <branch/>
   </autotools>
@@ -276,6 +284,10 @@
     <dependencies>
       <dep package="gmp"/>
     </dependencies>
+  </autotools>
+
+  <autotools id="hunspell" autogen-sh="configure">
+    <branch repo="hunspell-cvs"/>
   </autotools>
 
 </moduleset>

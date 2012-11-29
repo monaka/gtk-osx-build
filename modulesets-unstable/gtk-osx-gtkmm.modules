@@ -51,10 +51,26 @@
             repo="doxygen" />
   </autotools>
 
-  <autotools id="libsigc++2" >
+<!-- libsigc++ depends on doxygen for documentation, but doxygen
+     doesn't build correctly under gtk-osx. It builds fine on its own,
+     of course, and there are OSX binaries available on their
+     website. If you want the docs, install it separately and renable
+     documentation in your jhbuildrc-custom. -->
+  <autotools id="libsigc++2" autogen-args="--disable-documentation">
      <branch />
     <dependencies>
-      <dep package="doxygen"/>
+      <dep package="mm-common"/>
+      <!-- dep package="doxygen"/ -->
+    </dependencies>
+  </autotools>
+
+  <autotools id="atkmm">
+    <branch/>
+    <dependencies>
+      <dep package="glibmm"/>
+      <dep package="cairomm"/>
+      <dep package="pangomm"/>
+      <dep package="atk"/>
     </dependencies>
   </autotools>
 
@@ -64,8 +80,12 @@
       <dep package="glibmm"/>
       <dep package="cairomm"/>
       <dep package="pangomm"/>
-      <dep package="gtk+"/>
+      <dep package="atkmm"/>
     </dependencies>
+    <after>
+      <dep package="gtk+"/>
+      <dep package="gtk+-3.0"/>
+    </after>
   </autotools>
 
 </moduleset>

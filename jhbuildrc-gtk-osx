@@ -24,6 +24,9 @@ import sys
 import errno
 import re
 
+#some variables we'll need defined later
+_default_arch = ""
+_osx_version = 0.0
 
 # Register an extra command to get the checkout dir for a module.
 #
@@ -70,11 +73,7 @@ class _getenv(jhbuild.commands.Command):
 
 jhbuild.commands.register_command(_getenv)
 
-
-# Find out what we're building on
-_default_arch = ""
-_osx_version = 0.0
-
+# Determine the native system:
 def osx_ver():
     global _default_arch, _osx_version
     vstring = os.popen("uname -r").read().strip()
@@ -91,8 +90,13 @@ def osx_ver():
     else:
         _default_arch = "i386"
 
+# Determine the XCode Version:
 def xcode_ver():
-   ver = ver = os.popen("xcodebuild -version").read().strip()
+   cmd = os.popen("xcodebuild -version")
+   ver = cmd.read().strip()
+   err = cmd.close()
+   if err:
+       raise RuntimeError, "Failed to close xcodebuild stream"
    exp = re.compile(r'Xcode (\d+\.\d+)')
    vernum = exp.match(ver)
    if vernum:
@@ -100,16 +104,6 @@ def xcode_ver():
    else:
        return 3.0
 
-osx_ver()
-_xcodeversion = xcode_ver()
-_xcodepath = None
-if _xcodeversion >= 4.3:
-   _xcodepath = "/Applications/Xcode.app/Contents"
-#For XCode4 we need to disable ppc when building perl:
-if _xcodeversion >= 4.0:
-    os.environ["ARCHFLAGS"]="-arch i386 -arch x86_64"
-
-#print "Default Architecture %s\n" % _default_arch
 # Some utitily functions used here and in custom files:
 #
 def environ_append(key, value, separator=' '):
@@ -169,16 +163,21 @@ def setup_release():
 def make_sdk_name(sdk_version):
     return "MacOSX" + sdk_version + ".sdk"
 
-def get_sdkdir(sdk_name):
+def get_sdkdir(sdk_name, xcodepath, xcodeversion):
     platformpath = None
-    sdkpath = "Developer/SDKs"
-    if _xcodeversion >= 4.3:
-        platformpath = "Developer/Platforms/MacOSX.platform"
-    if _xcodepath and platformpath:
-        sdkdir = os.path.join(_xcodepath, platformpath, sdkpath, sdk_name)
+    if xcodeversion >= 4.3:
+        platformpath = os.path.join("Platforms", "MacOSX.platform", "Developer")
+    if xcodepath and platformpath:
+        sdkdir = os.path.join(xcodepath, platformpath, "SDKs", sdk_name)
+    elif xcodepath:
+        sdkdir = os.path.join(xcodepath, "SDKs", sdk_name)
     else:
-        sdkdir = os.path.join("/", sdkpath, sdk_name)
+        sdkdir = os.path.join("/Developer", "SDKs", sdk_name)
     return sdkdir
+
+#We call osx_ver() here so that we can set up _default_arch for setup_sdk:
+osx_ver()
+
 #
 # This is the workhorse of the setup. Call this function with the
 # target OSX version (10.4, 10.5, 10.6, or 10.7), the sdk version you want
@@ -206,9 +205,30 @@ def setup_sdk(target, sdk_version, architectures=[_default_arch]):
 
     os.environ["MACOSX_DEPLOYMENT_TARGET"] = target
     sdkdir = None
+    xcodepath = None
+    xcodeversion = None
 
+    try:
+        xcodeversion = xcode_ver()
+    except:
+        print "Failed to find xcode. Make sure that it's installed and that xcode-select is set properly."
+
+
+#Note: You can use $DEVELOPER_DIR to override the default set with xcode-select.
+    if _osx_version >= 5.0:
+        _cmd = os.popen("xcode-select -print-path")
+        xcodepath = _cmd.read().strip()
+        if _cmd.close():
+            raise RuntimeError, "Closing xcode-select stream failed"
+    elif os.environ.has_key("DEVELOPER_DIR"):
+        xcodepath = os.environ["DEVELOPER_DIR"]
+
+    _toolpath = os.path.join("/usr", "bin")
+    if xcodepath:
+        _toolpath = os.path.join(xcodepath, "usr", "bin")
+#For XCode4 we need to disable ppc when building perl:
     if sdk_version != "native":
-        sdkdir = get_sdkdir(make_sdk_name(sdk_version))
+        sdkdir = get_sdkdir(make_sdk_name(sdk_version), xcodepath, xcodeversion)
         # Seems like we need this since many libraries otherwise only look for
         # various dependencies (e.g. libiconv) in /usr/lib, hence pulling in
         # the wrong -L that doesn't have fat binaries on pre-10.5.
@@ -258,15 +278,18 @@ def setup_sdk(target, sdk_version, architectures=[_default_arch]):
         os.environ["VERSIONER_PYTHON_PREFER_32_BIT"] = "yes"
 
     #SDK 10.4 doesn't support gcc4.2.
-    if  _xcodeversion == 3.0 or sdk_version == "10.4u":
-        os.environ["CC"] = "/usr/bin/gcc-4.0"
-        os.environ["CXX"] = "/usr/bin/g++-4.0"
-    elif _osx_version >= 7.0 and _xcodeversion > 4.0:
-        os.environ["CC"] = "/usr/bin/llvm-gcc-4.2"
-        os.environ["CXX"] = "/usr/bin/llvm-g++-4.2"
+    if  xcodeversion == 3.0 or sdk_version == "10.4u":
+        os.environ["CC"] = os.path.join(_toolpath, "gcc-4.0")
+        os.environ["OBJC"] = os.path.join(_toolpath, "gcc-4.0")
+        os.environ["CXX"] = os.path.join(_toolpath, "g++-4.0")
+    elif _osx_version >= 7.0 and xcodeversion > 4.0:
+        os.environ["CC"] = os.path.join(_toolpath, "llvm-gcc-4.2")
+        os.environ["OBJC"] = os.path.join(_toolpath, "llvm-gcc-4.2")
+        os.environ["CXX"] = os.path.join(_toolpath, "llvm-g++-4.2")
     else:
-        os.environ["CC"] = "/usr/bin/gcc-4.2"
-        os.environ["CXX"] = "/usr/bin/g++-4.2"
+        os.environ["CC"] = os.path.join(_toolpath, "gcc-4.2")
+        os.environ["OBJC"] = os.path.join(_toolpath, "gcc-4.2")
+        os.environ["CXX"] = os.path.join(_toolpath, "g++-4.2")
 
     # Set the -arch flags for everything we're building.
     #
@@ -281,14 +304,11 @@ def setup_sdk(target, sdk_version, architectures=[_default_arch]):
     if architectures == ["i386"]:
         append_autogenargs("glib", "--build=i486-apple-darwin")
         append_autogenargs("gmp", "ABI=32")
-        append_autogenargs("libffi", "--build=i486-apple-darwin")
         append_autogenargs("liboil", "--host=i486-apple-darwin")
     elif architectures == ["x86_64"]:
         append_autogenargs("glib", "--build=x86_64-apple-darwin")
         append_autogenargs("gmp", "ABI=64")
-        append_autogenargs("libffi", "--build=x86_64-apple-darwin")
         append_autogenargs("liboil", "--host=x86_64-apple-darwin")
-
 
     # Tiger has a somewhat messed-up resolv.h, so we need to explicitly
     # link libresolv:
@@ -319,10 +339,18 @@ def setup_sdk(target, sdk_version, architectures=[_default_arch]):
     append_autogenargs("gnutls", "--disable-guile")
 
     #Guile doesn't handle optimization well with llvm-gcc
-    if _osx_version >= 7.0 and _xcodeversion > 4.0:
+    if _osx_version >= 7.0 and xcodeversion > 4.0:
         append_autogenargs("guile", 'CFLAGS="$CFLAGS -O1"')
+    #Defining ARCHFLAGS globally messes up waf, so we need to define
+    #it here for our two perl modules:
+    if architectures != ['ppc']:
+        module_extra_env.update(
+            {"perl-xml-simple":{"ARCHFLAGS":"-arch i386 -arch x86_64"},
+             "perl-xml-parser":{"ARCHFLAGS":"-arch i386 -arch x86_64"}})
+
 
     return sdkdir
+
 # This is a convenience function for older .jhbuildrc-customs.
 def setup_sdk_10_4():
     print "*** Using setup_sdk_10_4() is deprecated. Use setup_sdk instead. ***"
@@ -373,7 +401,6 @@ def setup_ppc_build():
     append_autogenargs("OpenSP", _ppc_args)
     append_autogenargs("libdbi", _ppc_args)
     append_autogenargs("libdbi-drivers", _ppc_args)
-
 
 # This is the function to call to build universal binaries. By default
 # it will build a ppc/i386/x86_64 universal binary for 10.5 and
@@ -476,7 +503,6 @@ tarballdir = None
 # Extra arguments to pass to all autogen.sh scripts.
 #
 autogenargs=''
-alwaysautogen = True
 
 # Use the included install-check program if available. It won't update
 # timestamps if the header hasn't changed, which speeds up builds.
@@ -488,6 +514,8 @@ if os.path.exists(_path):
 _gtk_osx_prompt_prefix = "JH"
 
 _gtk_osx_default_build = ""
+
+#print "Default Architecture %s\n" % _default_arch
 
 if _osx_version < 4.0:
     print "Error: Mac OS X 10.4 or newer is required, exiting."
@@ -563,6 +591,11 @@ os.environ['JHBUILD_SOURCE'] = checkoutroot
 # override it to somewhere else in jhbuildrc-custom if you like.
 #os.environ["M4"] = _exec_prefix + "/bin/m4"
 #os.environ['LIBTOOLIZE'] = _exec_prefix + '/bin/libtoolize'
+#Some autogens detect that it's a Mac and use glibtoolize if it's
+#available. Override this behavior.
+if not (os.environ.has_key ("LIBTOOLIZE") and os.environ["LIBTOOLIZE"]):
+    environ_append('LIBTOOLIZE', os.path.join(prefix, "bin", "libtoolize"))
+
 
 if not _host_tiger:
     skip.append('make')

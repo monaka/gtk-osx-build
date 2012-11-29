@@ -5,9 +5,8 @@
 
   <repository type="git" name="git.gnome.org" default="yes" 
               href="git://git.gnome.org/"/>
-  <repository type="cvs" name="cairographics" 
-              cvsroot=":pserver:anoncvs@anoncvs.freedesktop.org:/cvs/cairo"
-              password=""/>
+  <repository type="git" name="cairographics" 
+              href="git://git.cairographics.org/git/"/>
   <repository type="tarball" name="python"
 	      href="http://www.python.org/ftp/python/"/>
   <repository type="tarball" name="oracle"
@@ -16,29 +15,20 @@
 
   <metamodule id="meta-gtk-osx-python">
     <dependencies>
-      <dep package="pycairo"/>
+      <dep package="py2cairo"/>
       <dep package="pygobject"/>
       <dep package="pygtk"/>
       <dep package="gtk-mac-integration-python"/>
    </dependencies>
   </metamodule>
 
-   <autotools id="berkeleydb4.7" autogen-sh="dist/configure"
-         autogen-template="cd build_unix; ../%(autogen-sh)s --prefix %(prefix)s --libdir %(libdir)s %(autogenargs)s" makeargs="-C build_unix"
-         makeinstallargs="-C build_unix install">
-
-    <branch module="berkeley-db/db-4.7.25.NC.tar.gz" version="4.7.25"
-        repo="oracle" />
-  </autotools>
-
-  <autotools id="python2.6" autogenargs="--enable-shared" autogen-sh="configure">
-    <branch repo="python"
-	    module="2.6.6/Python-2.6.6.tar.bz2" version="2.6.6">
-    </branch>
-    <after>
-      <dep package="berkeleydb4.7"/>
-    </after>
-  </autotools>
+  <metamodule id="meta-gtk-osx-python-gtk3">
+    <dependencies>
+      <dep package="meta-gtk-osx-gtk3"/>
+      <dep package="pygobject3"/>
+      <dep package="gtk-mac-integration-python"/>
+    </dependencies>
+  </metamodule>
 
    <autotools id="berkeleydb4.8" autogen-sh="dist/configure"
          autogen-template="cd build_unix; ../%(autogen-sh)s --prefix %(prefix)s --libdir %(libdir)s %(autogenargs)s" makeargs="-C build_unix"
@@ -48,10 +38,14 @@
         repo="oracle" />
   </autotools>
 
-  <autotools id="python2.7" autogenargs="--enable-shared" autogen-sh="configure">
+  <autotools id="python2.7" autogenargs="--enable-shared"
+	     autogen-sh="configure">
     <branch repo="python"
-	    module="2.7.2/Python-2.7.2.tar.bz2" version="2.7.2">
+	    module="2.7.3/Python-2.7.3.tar.xz" version="2.7.3">
     </branch>
+    <dependencies>
+      <dep package="expat"/>
+    </dependencies>
     <after>
       <dep package="berkeleydb4.8"/>
     </after>
@@ -67,7 +61,7 @@
 
   <autotools id="python3.2" autogenargs="--enable-shared" autogen-sh="configure">
     <branch repo="python"
-	    module="3.2/Python-3.2.tar.bz2" version="3.2">
+	    module="3.3/Python-3.3.0.tar.bz2" version="3.3.0">
     </branch>
     <after>
       <dep package="berkeleydb5.0"/>
@@ -76,9 +70,20 @@
 
 
 
-<!-- Pycairo >1.8.4 requires Python 2.6. PyCairo 1.8.10 requires
-      Python2.7. -->
- <autotools id="pycairo" >
+<!--Py2cairo is for Python2 and pycairo is for Python3 -->
+ <autotools id="py2cairo" >
+    <branch module="py2cairo" repo="cairographics" />
+    <dependencies>
+      <dep package="cairo"/>
+    </dependencies>
+    <after>
+      <dep package="python2.7"/>
+      <dep package="meta-gtk-osx-core"/>
+      <dep package="meta-gtk-osx-gtk3"/>
+    </after>
+  </autotools>
+
+ <distutils id="pycairo" >
     <branch module="pycairo" repo="cairographics" />
     <dependencies>
       <dep package="cairo"/>
@@ -86,25 +91,34 @@
     <after>
       <dep package="python2.7"/>
       <dep package="meta-gtk-osx-core"/>
+      <dep package="meta-gtk-osx-gtk3"/>
     </after>
+ </distutils>
+
+  <autotools id="pygobject" autogenargs="--disable-introspection">
+    <branch revision="pygobject-2-28"/>
+    <dependencies>
+      <dep package="python2.7"/>
+      <dep package="meta-gtk-osx-core"/>
+   </dependencies>
   </autotools>
 
-  <autotools id="pygobject">
-    <branch />
+  <autotools id="pygobject3" >
+    <branch module="pygobject" checkoutdir="pygobject3"/>
     <dependencies>
-      <dep package="meta-gtk-osx-core"/>
-    </dependencies>
-    <after>
+      <dep package="py2cairo"/>
       <dep package="python2.7"/>
-    </after>
+      <dep package="meta-gtk-osx-gtk3"/>
+   </dependencies>
   </autotools>
+
 
   <autotools id="pygtk" autogenargs="--disable-introspection">
     <branch />
     <dependencies>
       <dep package="pygobject"/>
       <dep package="meta-gtk-osx-core"/>
-      <dep package="pycairo"/>
+      <dep package="py2cairo"/>
     </dependencies>
     <after>
       <dep package="libglade"/>
@@ -119,13 +133,12 @@
   </autotools>
 
   <autotools id="gtk-mac-integration-python">
-    <branch/>
-    <dependencies>
-      <dep package="pygobject"/>
-      <dep package="gtk+"/>
-    </dependencies>
+    <branch module="gtk-mac-integration"/>
     <after>
       <dep package="meta-gtk-osx-bootstrap"/>
+      <dep package="gtk+"/>
+      <dep package="gtk+-3.0"/>
+      <dep package="pygobject"/>
     </after>
   </autotools>
 
